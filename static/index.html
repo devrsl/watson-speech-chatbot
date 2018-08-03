@@ -1,0 +1,78 @@
+<html>
+    <head>
+        <title>watson-speech-chatbot</title>
+    </head>
+    <body>
+        <button id="btnIniciar" type="button" onclick="iniciarPergunta()">Iniciar pergunta</button>
+        <button id="btnEnviar" type="button" onclick="enviarPergunta()" disabled="disabled">Enviar pergunta</button>
+        <br />
+        <div id="div-chat">
+            <ul id="ul-chat">
+
+            </ul>
+        </div>
+    </body>
+    <script type="application/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script type="application/javascript" src="https://cdn.WebRTC-Experiment.com/RecordRTC.js"></script>
+    <script>
+        let audioStream = null;
+        let recordRTC = null;
+        navigator.getUserMedia({
+            audio: true,
+            video: false
+        }, (stream) => {
+            audioStream = stream
+
+            recordRTC = RecordRTC(audioStream, { 
+                type: 'audio'
+            });
+        }, (err) => {
+            console.error(err)
+        })
+
+        function iniciarPergunta() {
+            $('#btnIniciar').attr('disabled', 'disabled')
+            $('#btnEnviar').removeAttr('disabled')
+
+            recordRTC.startRecording();
+        }
+
+        function enviarPergunta() {
+            $('#btnEnviar').attr('disabled', 'disabled')
+            $('#btnIniciar').removeAttr('disabled')
+
+            recordRTC.stopRecording(audioURL => {
+                const formData = new FormData()
+                formData.append('audio', recordRTC.getBlob())
+
+                $.ajax({
+                    type: 'POST',
+                    url: '/api/sendaudio',
+                    data: formData,
+                    contentType: false,
+                    cache: false,
+                    processData: false,
+                    success: (data, status) => {
+                        let html = '<li>Você disse:<br><ul>'
+                        if (data && Array.isArray(data.results)) {
+                            data.results.forEach(r => {
+                                if (Array.isArray(r.alternatives)) {
+                                    r.alternatives.forEach(a => {
+                                        html += `<li>${a.transcript}</li>`
+                                    })
+                                }
+                            })
+                        }
+
+                        html += '</ul></li>'
+                            
+                        $("#ul-chat").prepend(html)
+                    },
+                    error: (data, status, e) => {
+                        console.error(e)
+                    }
+                })
+            })
+        }
+    </script>
+</html>
